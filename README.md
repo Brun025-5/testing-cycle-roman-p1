@@ -1,6 +1,6 @@
 # roman
 
-Roman numeral conversion library. Supports integers 1 to 3999 with subtractive notation
+Roman numeral conversion library. Supports integers 1 to 3999 with subtractive notation.
 
 ## Install
 
