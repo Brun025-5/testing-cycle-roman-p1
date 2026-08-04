@@ -1,5 +1,33 @@
 # Report
 
+## Table of Contents
+
+- [Part 1](#part-1)
+- [Part 2](#part-2)
+- [Part 3](#part-3)
+  - [Control Flow Graph of _to_roman_](#control-flow-graph-of-_to_roman_)
+  - [Cyclomatic Complexity](#cyclomatic-complexity)
+    - [DD-Path](#dd-path)
+    - [Computation](#computation)
+  - [Independent Paths](#independent-paths)
+  - [DU-pairs](#du-pairs)
+  - [Unit Tests for Branch Coverage](#unit-tests-for-branch-coverage)
+- [Part 4](#part-4)
+  - [Integration Test](#integration-test)
+  - [Execution Result](#execution-result)
+  - [Integration Finding](#integration-finding)
+- [Part 5](#part-5)
+  - [Acceptance Criteria](#acceptance-criteria)
+  - [Acceptance Tests](#acceptance-tests)
+  - [Execution Result](#execution-result-1)
+  - [Why AC1 and AC2 Failed, and Why Coverage Cannot Reveal Defects of This Kind](#why-ac1-and-ac2-failed-and-why-coverage-cannot-reveal-defects-of-this-kind)
+- [Part 6](#part-6)
+  - [Defect 1: found by the integration test (Part 4)](#defect-1-found-by-the-integration-test-part-4)
+  - [Defect 2: found by acceptance criterion AC1 (Part 5)](#defect-2-found-by-acceptance-criterion-ac1-part-5)
+  - [Defect 3: found by acceptance criterion AC2 (Part 5)](#defect-3-found-by-acceptance-criterion-ac2-part-5)
+  - [Final Test Run](#final-test-run)
+  - [Final Coverage](#final-coverage)
+
 ## Part 1
 
 The project was forked, cloned, and set up in a virtual environment. The inherited test suite was run first, confirming that all 15 existing tests pass, and the command-line conversion was exercised manually before writing any test.
@@ -77,22 +105,22 @@ This means six linearly independent paths are needed to cover every decision out
 Below is a basis set of V(G) = 6 linearly independent paths through `to_roman`, each highlighted over the DD-Path graph and written as a sequence of nodes:
 
 - Independent Path 1
-![Independent Path 1](docs/figures/IP1.png "Independent Path 1"){ width=50% }
+![Independent Path 1](docs/figures/IP1.png "Independent Path 1"){ width=300 }
 
 - Independent Path 2
-![Independent Path 2](docs/figures/IP2.png "Independent Path 2"){ width=50% }
+![Independent Path 2](docs/figures/IP2.png "Independent Path 2"){ width=300 }
 
 - Independent Path 3
-![Independent Path 3](docs/figures/IP3.png  "Independent Path 3"){ width=50% }
+![Independent Path 3](docs/figures/IP3.png  "Independent Path 3"){ width=300 }
 
 - Independent Path 4
-![Independent Path 4](docs/figures/IP4.png "Independent Path 4"){ width=50% }
+![Independent Path 4](docs/figures/IP4.png "Independent Path 4"){ width=300 }
 
 - Independent Path 5
-![Independent Path 5](docs/figures/IP5.png  "Independent Path 5"){ width=50% }
+![Independent Path 5](docs/figures/IP5.png  "Independent Path 5"){ width=300 }
 
 - Independent Path 6
-![Independent Path 6](docs/figures/IP6.png  "Independent Path 6"){ width=50% }
+![Independent Path 6](docs/figures/IP6.png  "Independent Path 6"){ width=300 }
 
 ### DU-pairs
 
@@ -193,19 +221,19 @@ This defect is left unfixed at this point in the workshop; it will be addressed 
 
 The following three criteria are functional: they are taken directly from `SPECIFICATION.md`, without looking at the implementation of `src/roman/converter.py`.
 
-**AC1 — Whitespace tolerance (`SPECIFICATION.md`, section 3)**
+**AC1: Whitespace tolerance (`SPECIFICATION.md`, section 3)**
 
 > Given a roman numeral string with leading and trailing whitespace, `"  IV  "`
 > When `from_roman` is called with that string
 > Then it returns `4`, with the surrounding whitespace trimmed before processing
 
-**AC2 — Canonical form validation (`SPECIFICATION.md`, section 4)**
+**AC2: Canonical form validation (`SPECIFICATION.md`, section 4)**
 
 > Given a well-formed but non-canonical roman numeral string, `"IIII"` (the canonical form of 4 is `"IV"`)
 > When `is_valid_roman` is called with that string
 > Then it returns `False`
 
-**AC3 — Roman arithmetic result range (`SPECIFICATION.md`, section 7)**
+**AC3: Roman arithmetic result range (`SPECIFICATION.md`, section 7)**
 
 > Given two equal roman numerals, `"I"` and `"I"`
 > When `subtract_roman` is called with them
@@ -251,3 +279,75 @@ At this point in the workshop, `src/roman/converter.py` already has 98% branch c
 AC3 passes because `subtract_roman` already relies on `to_roman`'s existing `n < _MIN_VALUE` guard, which was written and unit-tested; there was no missing behaviour for the specification to expose.
 
 In summary, unit and integration tests can only be as good as the branches that exist in the source code to exercise. Requirements that were never implemented leave no trace for a coverage report, which is exactly why the workshop requires acceptance criteria taken independently from the specification, not from the code.
+
+## Part 6
+
+Three defects were fixed, one per commit, each stating in its message the level of testing that found it. The 15 inherited tests in `tests/test_converter.py` were not modified.
+
+### Defect 1: found by the integration test (Part 4)
+
+**Commit `9672927`: `fix(integration): Correct value of subtractive pair IV in _PAIRS per spec section 2`**
+
+`_PAIRS` keyed the subtractive symbol `"IV"` to the value `5`, duplicating the entry for `"V"`, instead of `4`:
+
+```python
+    (5, "V"),
+-   (5, "IV"),
++   (4, "IV"),
+    (1, "I"),
+```
+
+With this fix, `to_roman` reaches the `"IV"` branch whenever `remaining == 4`, so `add_roman("II", "II")` now returns `"IV"` as required by `SPECIFICATION.md`, section 2.
+
+### Defect 2: found by acceptance criterion AC1 (Part 5)
+
+**Commit `72e964f`: `fix(acceptance): trim leading and trailing whitespace in from_roman per spec section 3`**
+
+`from_roman` normalized case but never trimmed whitespace:
+
+```python
+-   text = s.upper()
++   text = s.strip().upper()
+```
+
+With this fix, `from_roman("  IV  ")` returns `4`, as required by `SPECIFICATION.md`, section 3.
+
+### Defect 3: found by acceptance criterion AC2 (Part 5)
+
+**Commit `1296e16`: `fix(acceptance): reject non-canonical roman numerals in from_roman per spec section 4`**
+
+`from_roman` had no notion of canonical form: it accepted any well-formed string (e.g. `"IIII"`, `"VIIII"`, `"XXXX"`, `"VV"`) as long as the characters and adjacent subtractive pairs were individually valid. A canonical-form check was added, applied directly to the trimmed and upper-cased text, right after the character-validity check and before the string is parsed into a numeric total:
+
+```python
+import re
+...
+_CANONICAL_PATTERN = re.compile(
+    r"^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$"
+)
+...
+def from_roman(s):
+    ...
+    for ch in text:
+        if ch not in _SINGLE:
+            raise RomanError("invalid roman character: " + ch)
++   if not _CANONICAL_PATTERN.match(text):
++       raise RomanError("value is not in canonical roman numeral form: " + text)
+    total = 0
+    ...
+```
+
+This regex encodes the five formal rules of `SPECIFICATION.md`, section 4 directly as a structural/textual pattern (at most three repeated `I`/`X`/`C`/`M` in a row, at most one `V`/`L`/`D`, only the six allowed subtractive pairs, non-increasing group values, and nothing following a subtractive pair that is not strictly smaller than the subtracted symbol), it does not call `to_roman` or `from_roman`'s own parsing as an oracle, per the explicit warning in the specification. With this fix, `is_valid_roman("IIII")` now returns `False`, as required by section 4.
+
+**Side effect on coverage.** Because the canonical check now rejects any string that would previously have reached the parsing loop's own `"invalid subtractive pair"` and `"value out of range 1..3999"` raises (e.g. `"IC"` and `"MMMM"` are now rejected earlier, by the canonical-form check, before ever reaching those two lines), those two defensive checks became unreachable dead code. This is why final branch coverage below is 96% instead of 98%: two lines that are still correct and harmless to keep, as a defensive fallback, can no longer be exercised by any input, since the canonical check already filters everything they used to catch.
+
+### Final Test Run
+
+![Final Test Run Output](docs/figures/part6_1.png  "Final Test Run Output")
+
+All 38 tests pass: the 15 inherited tests, the 15 unit tests from Part 3, the 5 integration tests from Part 4, and the 3 acceptance tests from Part 5.
+
+### Final Coverage
+
+![Final Coverage Test Output](docs/figures/part6_2.png  "Final Coverage Test Output")
+
+Branch coverage of `src/roman/converter.py` went from 64% (Part 2) to 96% (final), staying above the 85% threshold required by Part 3 throughout. The two remaining uncovered lines are the dead defensive checks explained above, not missing test coverage of reachable behaviour.
