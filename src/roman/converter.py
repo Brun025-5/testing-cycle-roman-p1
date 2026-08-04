@@ -1,3 +1,5 @@
+import re
+
 class RomanError(ValueError):
     pass
 
@@ -33,6 +35,11 @@ _SINGLE = {
 _VALID_SUBTRACTIVE = {"IV", "IX", "XL", "XC", "CD", "CM"}
 
 
+_CANONICAL_PATTERN = re.compile(
+    r"^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$"
+)
+
+
 _MIN_VALUE = 1
 _MAX_VALUE = 3999
 
@@ -62,6 +69,8 @@ def from_roman(s):
     for ch in text:
         if ch not in _SINGLE:
             raise RomanError("invalid roman character: " + ch)
+    if not _CANONICAL_PATTERN.match(text):
+        raise RomanError("value is not in canonical roman numeral form: " + text)
     total = 0
     i = 0
     length = len(text)
