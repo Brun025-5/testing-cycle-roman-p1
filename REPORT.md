@@ -67,7 +67,7 @@ def to_roman(n):
 
 Each node corresponds to a statement (or a sequential block of statements) of `to_roman`, and each edge represents a possible transfer of control between them. So, the resulting CFG is:
 
-![Control Flow Graph](docs/figures/CFG.png "Control Flow Graph"){ width=300 }
+<img src="docs/figures/CFG.png" alt="Control Flow Graph" title="Control Flow Graph" width="300">
 
 ### Cyclomatic Complexity
 
@@ -75,7 +75,7 @@ Each node corresponds to a statement (or a sequential block of statements) of `t
 
 Before computing the cyclomatic complexity, the CFG is reduced to its decision-to-decision path (DD-Path) graph. In a DD-Path graph, every maximal chain of sequential nodes (nodes with exactly one predecessor and one successor) is collapsed into a single node, so that only the decision points and junctions of the original CFG remain visible. This simplifies the counting of edges and nodes used in the cyclomatic complexity formula, while preserving the same set of possible execution paths as the original CFG.
 
-![DD-Path](docs/figures/DD-Path.png "DD-Path"){ width=300 }
+<img src="docs/figures/DD-Path.png" alt="DD-Path" title="DD-Path" width="300">
 
 #### Computation
 
@@ -105,22 +105,22 @@ This means six linearly independent paths are needed to cover every decision out
 Below is a basis set of V(G) = 6 linearly independent paths through `to_roman`, each highlighted over the DD-Path graph and written as a sequence of nodes:
 
 - Independent Path 1
-![Independent Path 1](docs/figures/IP1.png "Independent Path 1"){ width=300 }
+<img src="docs/figures/IP1.png" alt="Independent Path 1" title="Independent Path 1" width="300">
 
 - Independent Path 2
-![Independent Path 2](docs/figures/IP2.png "Independent Path 2"){ width=300 }
+<img src="docs/figures/IP2.png" alt="Independent Path 2" title="Independent Path 2" width="300">
 
 - Independent Path 3
-![Independent Path 3](docs/figures/IP3.png  "Independent Path 3"){ width=300 }
+<img src="docs/figures/IP3.png" alt="Independent Path 3" title="Independent Path 3" width="300">
 
 - Independent Path 4
-![Independent Path 4](docs/figures/IP4.png "Independent Path 4"){ width=300 }
+<img src="docs/figures/IP4.png" alt="Independent Path 4" title="Independent Path 4" width="300">
 
 - Independent Path 5
-![Independent Path 5](docs/figures/IP5.png  "Independent Path 5"){ width=300 }
+<img src="docs/figures/IP5.png" alt="Independent Path 5" title="Independent Path 5" width="300">
 
 - Independent Path 6
-![Independent Path 6](docs/figures/IP6.png  "Independent Path 6"){ width=300 }
+<img src="docs/figures/IP6.png" alt="Independent Path 6" title="Independent Path 6" width="300">
 
 ### DU-pairs
 
