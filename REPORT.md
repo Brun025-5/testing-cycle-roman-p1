@@ -127,3 +127,127 @@ Running the coverage command again after adding the tests:
 ![Branch Coverage  > 85%](docs/figures/part3-13.png  "Branch Coverage  > 85%")
 
 Branch coverage of `src/roman/converter.py` went from 64% (Part 2) to 98%, above the 85% required by this task. All 30 tests (15 inherited + 15 new) pass.
+
+## Part 4
+
+### Integration Test
+
+`add_roman` and `subtract_roman` do not implement any conversion logic themselves: they are built entirely on top of `from_roman` and `to_roman` (`SPECIFICATION.md`, section 7), and their result is expected to be a canonical roman numeral that `is_valid_roman` accepts. The unit tests written in Part 3 exercise `from_roman`, `to_roman` and `is_valid_roman` in isolation; none of them exercise the collaboration between all of these units through `add_roman`/`subtract_roman`.
+
+Five integration tests were added in a new file, `tests/test_integration.py`, using the mandatory examples from section 7 of the specification:
+
+```python
+from roman.converter import add_roman, subtract_roman, is_valid_roman
+
+
+def test_add_roman_two_plus_two():
+    assert add_roman("II", "II") == "IV"
+
+
+def test_add_roman_subtractive_operands():
+    assert add_roman("IV", "VI") == "X"
+
+
+def test_add_roman_across_thousands():
+    assert add_roman("MCMXCIV", "VI") == "MM"
+
+
+def test_subtract_roman_ten_minus_one():
+    assert subtract_roman("X", "I") == "IX"
+
+
+def test_add_roman_result_is_accepted_by_is_valid_roman():
+    assert is_valid_roman(add_roman("IV", "VI")) is True
+```
+
+### Execution Result
+
+![Integration Test Output](docs/figures/part4.png  "Integration Test Output")
+
+### Integration Finding
+
+`add_roman("II", "II")` returns `"IIII"` instead of the canonical `"IV"` required by the specification. The root cause is in the `_PAIRS` table used by `to_roman`:
+
+```python
+_PAIRS = (
+    ...
+    (5, "V"),
+    (5, "IV"),   # should be (4, "IV")
+    (1, "I"),
+)
+```
+
+The entry for the subtractive symbol `"IV"` is keyed to the value `5` instead of `4`, duplicating the entry for `"V"`. Because `to_roman` walks `_PAIRS` in order and only emits a symbol while `remaining >= value`, a `remaining` of `4` never reaches the `(5, "IV")` branch (`4 >= 5` is false) and falls through to `(1, "I")`, which is appended four times.
+
+**Why the unit tests of each function pass without detecting it:**
+
+- The 15 inherited `to_roman` unit tests, and the ones added in Part 3, call `to_roman` with `1, 2, 3, 5, 7, 10, 50, 58, 100, 500, 1000`, plus the boundary/type-error inputs `0`, `4000`, `"10"`, `True`. None of these values has a units digit of `4`, so none of them ever drives `remaining` to exactly `4` inside the loop. Branch coverage of `to_roman` is at 100% because every `if`, `for` and `while` branch is exercised, but coverage only proves a branch executed, not that it executed with the specific value (`4`) that exposes this data-table defect. This is precisely why 85%+ branch coverage does not guarantee correctness.
+- `from_roman`, tested on its own, is correct and unrelated to `_PAIRS`: `from_roman("IV")` uses `_SINGLE`/`_VALID_SUBTRACTIVE` and correctly returns `4`. A unit test for `from_roman` alone cannot reveal a defect that lives inside `to_roman`.
+- The defect only surfaces when a value of `4` is *produced* by composing two units, `from_roman("II") + from_roman("II")`, and immediately *consumed* by `to_roman`. That specific composition is exactly what the integration test performs, following the worked example mandated by the specification (`add_roman("II", "II") == "IV"`), which is why it takes an integration-level test, not more unit tests of the individual functions, to catch it.
+
+This defect is left unfixed at this point in the workshop; it will be addressed in Part 6 together with the other defects, without modifying the 15 inherited tests.
+
+## Part 5
+
+### Acceptance Criteria
+
+The following three criteria are functional: they are taken directly from `SPECIFICATION.md`, without looking at the implementation of `src/roman/converter.py`.
+
+**AC1 — Whitespace tolerance (`SPECIFICATION.md`, section 3)**
+
+> Given a roman numeral string with leading and trailing whitespace, `"  IV  "`
+> When `from_roman` is called with that string
+> Then it returns `4`, with the surrounding whitespace trimmed before processing
+
+**AC2 — Canonical form validation (`SPECIFICATION.md`, section 4)**
+
+> Given a well-formed but non-canonical roman numeral string, `"IIII"` (the canonical form of 4 is `"IV"`)
+> When `is_valid_roman` is called with that string
+> Then it returns `False`
+
+**AC3 — Roman arithmetic result range (`SPECIFICATION.md`, section 7)**
+
+> Given two equal roman numerals, `"I"` and `"I"`
+> When `subtract_roman` is called with them
+> Then it raises `RomanError`, since the result (`0`) falls outside the supported range of 1 to 3999
+
+### Acceptance Tests
+
+Each criterion was implemented as a test in a new file, `tests/test_acceptance.py`:
+
+```python
+import pytest
+
+from roman.converter import from_roman, is_valid_roman, subtract_roman, RomanError
+
+
+def test_from_roman_trims_surrounding_whitespace():
+    assert from_roman("  IV  ") == 4
+
+
+def test_is_valid_roman_rejects_non_canonical_form():
+    assert is_valid_roman("IIII") is False
+
+
+def test_subtract_roman_rejects_out_of_range_result():
+    with pytest.raises(RomanError):
+        subtract_roman("I", "I")
+```
+
+### Execution Result
+
+![Acceptance Test Output 1](docs/figures/part5_1.png  "Acceptance Test Output - 1")
+
+![Acceptance Test Output](docs/figures/part5_2.png  "Acceptance Test Output - 2")
+
+
+### Why AC1 and AC2 Failed, and Why Coverage Cannot Reveal Defects of This Kind
+
+At this point in the workshop, `src/roman/converter.py` already has 98% branch coverage (Part 3) and a passing unit-level suite. Two of the three acceptance criteria still fail, revealing two defects that are structurally invisible to coverage-driven unit testing:
+
+- **AC1 (whitespace trimming).** `from_roman` never calls `.strip()` on its input; it only calls `.upper()`. Because no line of code attempts to trim whitespace, there is no branch to exercise, cover, or miss; coverage tooling can only report on statements and branches that exist in the source. A missing statement produces no uncovered line for `pytest --cov` to flag: from `to_roman`/`from_roman`'s point of view, a space is simply "a character not in `_SINGLE`", so it takes the same, already-covered `raise RomanError("invalid roman character: ...")` branch that a genuinely invalid input like `"Z"` takes. High branch coverage tells us every existing decision was tried both ways; it says nothing about behaviour the specification requires that was never coded at all. Only a black-box test built from the specification, not from the code, can catch that a feature is absent.
+- **AC2 (canonical form validation).** Section 4 of the specification requires `is_valid_roman` (and, indirectly, `from_roman`) to reject well-formed but non-canonical strings such as `"IIII"`. The current implementation has no notion of canonical form at all: `from_roman` only checks that each character is a valid symbol and that subtractive pairs are among the six allowed ones, then sums the values. There is no code path anywhere that counts repeated symbols or checks group ordering, so, again, there is nothing for coverage to miss. `is_valid_roman("IIII")` takes the normal, fully-covered success path through `from_roman` and returns `True`. This also explains why the integration test in Part 4 could not have caught this on its own: `add_roman`'s "must be accepted by `is_valid_roman`" consistency check (`SPECIFICATION.md`, section 7) is not a reliable oracle here, because `is_valid_roman` shares the same missing-canonical-check defect and would have silently accepted a non-canonical result too.
+
+AC3 passes because `subtract_roman` already relies on `to_roman`'s existing `n < _MIN_VALUE` guard, which was written and unit-tested; there was no missing behaviour for the specification to expose.
+
+In summary, unit and integration tests can only be as good as the branches that exist in the source code to exercise. Requirements that were never implemented leave no trace for a coverage report, which is exactly why the workshop requires acceptance criteria taken independently from the specification, not from the code.
